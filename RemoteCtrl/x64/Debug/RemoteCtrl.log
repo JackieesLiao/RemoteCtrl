@@ -1,7 +1,11 @@
-﻿  RemoteCtrl.cpp
-  ServerSocket.cpp
-  正在生成代码...
-D:\DevelopCode\RemoteCtrl\RemoteCtrl\ServerSocket.cpp(47,31): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+﻿  ServerSocket.cpp
+D:\DevelopCode\RemoteCtrl\RemoteCtrl\ServerSocket.cpp(48,73): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+  (编译源文件“/ServerSocket.cpp”)
+  
+D:\DevelopCode\RemoteCtrl\RemoteCtrl\ServerSocket.cpp(64,31): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+  (编译源文件“/ServerSocket.cpp”)
+  
+D:\DevelopCode\RemoteCtrl\RemoteCtrl\ServerSocket.cpp(140,9): warning C4244: “=”: 从“DWORD”转换到“WORD”，可能丢失数据
   (编译源文件“/ServerSocket.cpp”)
   
   RemoteCtrl.vcxproj -> D:\DevelopCode\RemoteCtrl\x64\Debug\RemoteCtrl.exe

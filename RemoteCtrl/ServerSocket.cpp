@@ -32,15 +32,38 @@ bool CServerSocket::GetAccept()
 	if (m_client == -1) return false;
 	return true;
 }
+constexpr int kBufferSize = 4096;
+/// <summary>
+/// 用于处理从客户端接收的数据并解析成命令
+/// </summary>
+/// <returns></returns>
 int CServerSocket::DealCMD()
 {
 	if (m_client == -1) return false;
-	char buffer[1024]{};
+	//创建缓冲区，大小为kBufferSize
+	char* buffer = new char[kBufferSize];
+	//初始化缓冲区大小为0
+	memset(buffer, 0, kBufferSize);
+	std::size_t index = 0;
 	while (true) {
-		auto recv_buf = recv(m_client, buffer, sizeof(buffer),0);
-		if (recv_buf <= 0) return -1;
-		//todo:处理命令
+		std::size_t recv_buf_len = recv(m_client, buffer + index, kBufferSize - index,0);
+		//如果接收失败或连接断开，返回-1
+		if (recv_buf_len <= 0) return -1;
+		//更新索引，表示已接收数据的长度
+		index += recv_buf_len;
+		//将接收到的总长度保存到 recv_buf_len
+		recv_buf_len = index;
+		//创建 CPacket 对象并解析接收到的数据
+		m_packet = CPacket((BYTE*)buffer, recv_buf_len);
+		if (recv_buf_len > 0) {
+			//移动未解析的剩余数据到缓冲区开头
+			memmove(buffer,buffer + recv_buf_len, kBufferSize - recv_buf_len);
+			//更新索引，减去已处理的数据长度
+			index -= recv_buf_len;
+			return m_packet.GetCmd();
+		}
 	}
+	return -1;
 }
 bool CServerSocket::Send(const char* pData, std::size_t nSize)
 {
@@ -82,4 +105,101 @@ void CServerSocket::releaseInstance()
 		m_instance = nullptr;
 		delete tmp;
 	}
+}
+
+CPacket::CPacket():
+	sHead(0),nLength(0),sCmd(0),sSum(0)
+{
+}
+
+CPacket::CPacket(const CPacket&packet)
+{
+	sHead = packet.sHead;
+	nLength = packet.nLength;
+	sCmd = packet.sCmd;
+	strData = packet.strData;
+	sSum = packet.sSum;
+}
+
+CPacket::CPacket(const BYTE*pData, std::size_t&nSize)
+{
+	std::size_t i = 0;
+	for (; i < nSize; i++) {
+		if (*(WORD*)(pData + i) == 0xFEFF) {//循环查找包头
+			sHead = *(WORD*)(pData + i);
+			i += 2;
+			break;
+		}
+	}
+	//如果在找到包头后的位置i加上8个字节的偏移量超过了数据流的大小 nSize
+	//则说明数据不完整
+	if (i + 8 >= nSize) {    //length(4)+cmd(2)+sum(2)
+		nSize = 0;
+		return;
+	}
+	//有数据
+	nLength = *(DWORD*)(pData + i); i += 4;//表示数据长度，从 pData 的位置 i 开始的4个字节。
+	if (nLength + i > nSize) {//包未完全接收到，返回，解析失败
+		nSize = 0;
+		return;
+	}
+	sCmd = *(DWORD*)(pData + i);    i += 2;//表示命令长度，从 pData 的位置 i + 4 开始的2个字节
+	if (nLength > 4) {
+		strData.resize(nLength - 2 - 2);
+		memcpy((void*)strData.c_str(),pData + i,nLength - 4);
+		i += nLength - 4;
+	}
+	sSum = *(WORD*)(pData + i);    i += 2;
+	WORD str_sum = 0;
+	for (std::size_t j = 0; j < strData.size(); j++) {
+		str_sum += BYTE(strData[i]) & 0xFF;
+	}
+	if (str_sum == sSum) {
+		//nSize = nLength + 2 + 4;
+		nSize = i;
+		return;
+	}
+	nSize = 0;
+}
+
+CPacket& CPacket::operator=(const CPacket&packet)
+{
+	if (this != &packet) {
+		sHead = packet.sHead;
+		nLength = packet.nLength;
+		sCmd = packet.sCmd;
+		strData = packet.strData;
+		sSum = packet.sSum;
+	}
+	return *this;
+}
+
+CPacket::~CPacket()
+{
+
+}
+
+WORD CPacket::GetHead() const
+{
+	return sHead;
+}
+
+DWORD CPacket::GetLength() const
+{
+	return nLength;
+}
+
+WORD CPacket::GetCmd() const
+{
+	return sCmd;
+}
+
+const std::string& CPacket::GetData() const
+{
+	return strData;
+}
+
+WORD CPacket::GetSum() const
+{
+	return sSum;
 }
